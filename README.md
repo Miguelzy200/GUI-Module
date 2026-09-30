@@ -1,6 +1,6 @@
 # GUI Module
 
-A simple module that make gui creation with Pygame easier.
+A simple module that makes gui creation with Pygame easier.
 
 ## About this project
 
