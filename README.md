@@ -1,18 +1,18 @@
 # GUI Module
 
-A simple module that turn easier gui creation with pygame.
+A simple module that make gui creation with Pygame easier.
 
 ## About this project
 
-This project was created to practice modules development using POO and apply Data Structure and Algorithms concepts, such as Queues. Also meant to integrate this module in future projects.
+This project was created to practice modules development using OOP and apply Data Structure and Algorithms concepts, such as Queues. Also meant to integrate this module in future projects.
 
-So far, the module has this widgets avialable:
+So far, the module has this widgets available:
 - 'Frame'
 - 'Text'
 - 'Button'
 - 'Image'
 
-This repository also contains **examples of usage (examples/)**, including a real application on a led controller which uses an arduino and serial communication to turn the led on/off.
+This repository also contains **examples of usage (examples/)**, including a real application on a LED controller which uses an Arduino and serial communication to turn the LED on/off.
 
 ## Requirements
 
@@ -24,7 +24,7 @@ This repository also contains **examples of usage (examples/)**, including a rea
 
 ### Clone the repository
 ```bash
-git clone
+git clone https://github.com/Miguelzy200/GUI-Module.git
 cd GUI-Module
 ```
 
@@ -75,7 +75,7 @@ while True:
 ## Widgets
 
 ### Frame
-A container that group other widgets
+A container that groups other widgets
 ```py
 Frame(
     pos=(100,100)
