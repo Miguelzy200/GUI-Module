@@ -130,6 +130,20 @@ An interface, created with the module, that allows turn on/off a leds in an ardu
 
 > This is the very first version of the project, many features will be add on...
 
+## Roadmap
+
+[X] - Frame
+[X] - Text
+[X] - Button
+[X] - Image
+[ ] - Better code structure
+[X] - Change color input
+[X] - Relative pos & Absolute pos
+[ ] - Image Button
+[ ] - Optional self button parametrer
+[X] - Func Set Pos / Upd pos
+[ ] - Frame support another frame
+
 ## License
 
 MIT License

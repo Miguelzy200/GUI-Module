@@ -3,12 +3,27 @@ from pygame.locals import *
 import os.path
 from collections.abc import Callable
 
-def _org_position(pos:tuple[int,int], size:tuple[int,int], center:bool):
-    new_pos = pos
-    if center: new_pos = (new_pos[0]-size[0]/2, new_pos[1]-size[1]/2)
-    if pos[0] < 0: new_pos = (0, new_pos[1])
-    if pos[1] < 0: new_pos = (new_pos[0], 0)
-    return new_pos
+def _upd_pos(rel_pos:tuple[int,int], offset:tuple[int,int], size:tuple[int,int], center:bool):
+    abs_pos_updtd = (0,0)
+    rel_pos_updtd = rel_pos
+
+    if (center):
+        rel_pos_updtd = (
+            rel_pos[0] - size[0]/2,
+            rel_pos[1] - size[1]/2
+        )
+    if rel_pos_updtd[0] < offset[0]:
+        rel_pos_updtd = (0, rel_pos_updtd[1])
+    if rel_pos_updtd[1] < offset[1]:
+        rel_pos_updtd = (rel_pos_updtd[0], 0)
+
+    abs_pos_updtd = (
+        rel_pos_updtd[0] + offset[0],
+        rel_pos_updtd[1] + offset[1]
+    )
+    print(f"Atualizar pos: {rel_pos} + {offset} = {abs_pos_updtd}")
+    return (rel_pos_updtd, abs_pos_updtd)
+
 
 def _in_parent(ctr_pos:tuple[int,int], ctr_size:tuple[int,int], pos:tuple[int,int], size:tuple[int,int]):
     if (ctr_pos[0]+ctr_size[0] > pos[0]+size[0]) or (ctr_pos[1]+ctr_size[1] > pos[1]+size[1]):
@@ -29,8 +44,14 @@ def _img_processing(image:pygame.Surface, image_size:tuple[int,int], size:tuple[
     return processed_img
 
 class Widget:
-    def __init__(self, pos: tuple[int,int]): self.pos = pos
-    def add_offset(self, offset:tuple[int,int]): pass
+    def __init__(self, pos: tuple[int,int]):
+        self.rel_pos = pos
+        self.abs_pos = pos
+        self.offset = (0,0)
+    def set_offset(self, offset:tuple[int,int]): 
+        self.offset = offset
+        self.rel_pos, self.abs_pos = _upd_pos(self.rel_pos, offset, (0,0), False)
+        print(f"Relative pos: {self.rel_pos}\nAbsolute pos: {self.abs_pos}\nOffset: {self.offset}")
     def event_handler(self, event:pygame.event.Event): pass
     def draw(self, display:pygame.display): pass
 
@@ -39,16 +60,29 @@ class Frame(Widget):
     def __init__(self, 
                 pos: tuple[int,int], 
                 size:tuple[int,int], 
-                color: tuple[int,int,int] = (255,255,255), 
+                color: pygame.Color = (255,255,255), 
                 center:bool = False):
+        super().__init__(pos)
         self.content = list()
-        self.pos = _org_position(pos, size, center)
+        self.rel_pos, self.abs_pos = _upd_pos(pos, (0,0), size, center)
         self.size = size
         self.color = color
+        self.center = center
 
     def add_content(self, widget: Widget):
-        widget.add_offset(self.pos)
+        widget.set_offset(self.abs_pos)
         self.content.append(widget)
+
+    def upd_frame(self,
+            pos:tuple[int,int] = None,
+            size:tuple[int,int] = None,
+            color: pygame.Color = None):
+        if color!=None: self.color = color
+        if size!=None: self.size = size
+        if pos!=None:
+            self.rel_pos, self.abs_pos = _upd_pos(pos, self.offset, self.size, self.center)
+            for content in self.content:
+                content.set_offset(self.abs_pos)
 
     def event_handler(self, event):
         for content in self.content:
@@ -58,10 +92,10 @@ class Frame(Widget):
         pygame.draw.rect(
             screen, 
             self.color, 
-            (self.pos[0], self.pos[1], self.size[0], self.size[1])
+            (self.abs_pos[0], self.abs_pos[1], self.size[0], self.size[1])
         )
         for content in self.content: 
-            if _in_parent(content.pos, content.size, self.pos, self.size):
+            if _in_parent(content.abs_pos, content.size, self.abs_pos, self.size):
                 content.draw(screen)
 
 
@@ -71,11 +105,11 @@ class Button(Widget):
                 size:tuple[int,int] = (200,80), 
                 label:str = "Clique aqui!", 
                 text_size:int = 24, 
-                text_color:tuple[int,int,int] = (50,50,50), 
-                button_color:tuple[int,int,int] = (200,80,50), 
+                text_color:pygame.Color = (50,50,50), 
+                button_color:pygame.Color = (200,80,50), 
                 locked:bool = False,
                 center: bool = False):
-        self.pos = _org_position(pos, size, center)
+        super().__init__(pos)
         self.size = size
         self.button_color = button_color
         self.label = label
@@ -83,20 +117,19 @@ class Button(Widget):
         self.text_color = text_color
         self.locked = locked
         self.center = center
-        self.__offset = (0,0)
+        self.rel_pos, self.abs_pos = _upd_pos(pos, (0,0), size, center)
         self.__font = pygame.font.SysFont("arial", text_size, True)
         self.__text_render = self.__font.render(label, True, text_color)
         self.__prev = button_color
         self.__hover = False
-        self.__button_rect = pygame.Rect(pos[0], pos[1], size[0], size[1])
+        self.__button_rect = pygame.Rect(self.abs_pos[0], self.abs_pos[1], size[0], size[1])
         self.__text_rect = self.__text_render.get_rect()
         self.__text_rect.center = self.__button_rect.center
         self.__callback_func = None
 
-    def add_offset(self, offset:tuple[int,int]):
-        self.pos = (self.pos[0]+offset[0], self.pos[1]+offset[1])
-        self.__offset = offset
-        self.__button_rect.topleft = self.pos
+    def set_offset(self, offset:tuple[int,int]):
+        super().set_offset(offset)
+        self.__button_rect.topleft = self.abs_pos
         self.__text_rect.center = self.__button_rect.center
 
     def upd_button(self,
@@ -115,8 +148,8 @@ class Button(Widget):
         if button_color != None: self.button_color = button_color
         if locked != None: self.locked = locked
         if center != None: self.center = center
-        if pos != None: self.pos = _org_position((pos[0]+self.__offset[0], pos[1]+self.__offset[1]), self.size, self.center)
-        self.__button_rect = pygame.Rect(self.pos[0], self.pos[1], self.size[0], self.size[1])
+        if pos != None: self.rel_pos, self.abs_pos = _upd_pos(pos, self.offset, self.size, self.center)
+        self.__button_rect = pygame.Rect(self.abs_pos[0], self.abs_pos[1], self.size[0], self.size[1])
         self.__font = pygame.font.SysFont("arial", self.text_size, True)
         self.__text_render = self.__font.render(self.label, True, self.text_color)
         self.__text_rect = self.__text_render.get_rect()
@@ -144,8 +177,7 @@ class Button(Widget):
         self.__callback_func = callback_func
 
     def draw(self, display):
-        pygame.draw.rect(display, (255,255,255), self.__button_rect)
-        pygame.draw.rect(display, self.button_color, (self.pos[0], self.pos[1], self.size[0], self.size[1]))
+        pygame.draw.rect(display, self.button_color, self.__button_rect)
         display.blit(self.__text_render, self.__text_rect)
 
 
@@ -153,7 +185,7 @@ class Text(Widget):
     def __init__(self, 
                 pos:tuple[int,int], 
                 label:str = "Seu texto aqui.", 
-                text_color:tuple[int,int,int] = (0,0,0), 
+                text_color:pygame.Color = (0,0,0), 
                 bg_color:tuple[int,int,int] = None,
                 text_font:str = "arial", 
                 text_size:int = 24,
@@ -161,6 +193,7 @@ class Text(Widget):
                 italic:bool = False,
                 antialias:bool = True,
                 center:bool = False):
+        super().__init__(pos)
         self.label = label
         self.text_color = text_color
         self.bg_color = bg_color
@@ -169,19 +202,17 @@ class Text(Widget):
         self.bold = bold
         self.italic = italic
         self.antialias = antialias
+        self.center = center
         self.__text_render = self.text_font.render(label, antialias, text_color, bg_color)
-        self.size = (self.__text_render.get_width(), self.__text_render.get_height())
-        self.pos = _org_position(pos, self.size, center)
         self.size = self.__text_render.get_size()
-
-    def add_offset(self, offset:tuple[int,int]):
-        self.pos = (self.pos[0]+offset[0], self.pos[1]+offset[1])
+        self.rel_pos, self.abs_pos = _upd_pos(pos, (0,0), self.size, center)
 
     def upd_text(self, 
+                pos:tuple[int,int] = None,
                 label:str = None, 
                 text_color:tuple[int,int,int] = None, 
                 bg_color:tuple[int,int,int] = None, 
-                text_font:str = None, 
+                text_font:str = "arial", 
                 text_size:int = None,
                 bold:bool = None,
                 italic:bool = None,
@@ -193,12 +224,14 @@ class Text(Widget):
         if italic!=None: self.italic = italic
         if text_size!=None: self.text_size = text_size
         if antialias!=None: self.antialias = antialias
-        if text_font!=None: self.text_font = pygame.font.SysFont(text_font, self.text_size, self.bold, self.italic)
+        self.text_font = pygame.font.SysFont(text_font, self.text_size, self.bold, self.italic)
         self.__text_render = self.text_font.render(self.label, self.antialias, self.text_color, self.bg_color)
         self.size = self.__text_render.get_size()
+        if pos!=None: 
+            self.rel_pos, self.abs_pos = _upd_pos(pos, self.offset, self.size, self.center)
 
     def draw(self, display:pygame.display):
-        display.blit(self.__text_render, self.pos)
+        display.blit(self.__text_render, self.abs_pos)
 
 
 class Image(Widget):
@@ -207,10 +240,11 @@ class Image(Widget):
                 path:str,
                 size:tuple[int,int] = None, 
                 border_width:int = 0, 
-                border_color:tuple[int,int,int] = (255,255,255),
+                border_color:pygame.Color = (255,255,255),
                 proportional_scale:bool = True,
                 visible:bool = True,
                 center:bool = False):
+        super().__init__(pos)
         if _check_path(path):
             self.image = pygame.image.load(path)
             if self.image.get_masks()[3] == 0: self.image.convert()
@@ -222,20 +256,23 @@ class Image(Widget):
         self.border_width = border_width
         self.border_color = border_color
         self.proportional_scale = proportional_scale
-        self.pos = _org_position(pos, self.size, center)
+        self.rel_pos, self.abs_pos = _upd_pos(pos, (0,0), self.size, center)
         self.visible = visible
+        self.center = center
         self.__image_rect = self.image.get_rect()
+        self.__image_rect.topleft = self.abs_pos
 
-    def add_offset(self, offset):
-        self.pos = (self.pos[0]+offset[0], self.pos[1]+offset[1])
-        self.__image_rect.topleft = self.pos
+    def set_offset(self, offset):
+        super().set_offset(offset)
+        self.__image_rect.topleft = self.abs_pos
 
-    def upd_image(self, 
-                size:tuple[int,int] = None, 
-                border_width:int = None,  
-                border_color:tuple[int,int,int] = None, 
-                proportional_scale:bool = None, 
-                visible:bool = None):
+    def upd_image(self,
+            pos:tuple[int,int] = None,
+            size:tuple[int,int] = None, 
+            border_width:int = None,  
+            border_color:tuple[int,int,int] = None, 
+            proportional_scale:bool = None, 
+            visible:bool = None):
         if border_width!=None: self.border_width = border_width
         if border_color!=None: self.border_color = border_color
         if proportional_scale!=None: self.proportional_scale = proportional_scale
@@ -244,6 +281,9 @@ class Image(Widget):
             self.image = _img_processing(self.image, self.size, size, self.proportional_scale)
             self.size = self.image.get_size()
             self.__image_rect.size = self.size
+        if pos!=None:
+            self.rel_pos, self.abs_pos = _upd_pos(pos, self.offset, self.size, self.center)
+            self.__image_rect.topleft = self.abs_pos
 
     def draw(self, display:pygame.display):
         if not self.visible: return
